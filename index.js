@@ -8,6 +8,7 @@ const viewPropTypes = ViewPropTypes || View.propTypes;
 export default class PinchZoomView extends Component {
   static propTypes = {
     ...viewPropTypes,
+
     scalable: PropTypes.bool,
     minScale: PropTypes.number,
     maxScale: PropTypes.number
@@ -22,6 +23,8 @@ export default class PinchZoomView extends Component {
   constructor(props) {
     super(props);
     this.state = {
+      maxX: 30,
+      maxY: 30,
       scale: 1,
       lastScale: 1,
       offsetX: 0,
@@ -90,6 +93,12 @@ export default class PinchZoomView extends Component {
         e.nativeEvent.touches[0].pageY - e.nativeEvent.touches[1].pageY
       );
       let distant = Math.sqrt(dx * dx + dy * dy);
+
+      if (distant <= 200) {
+       
+        this.setState({ scale:this.props.minScale,lastMovePinch: true });
+
+      }
       let scale = (distant / this.distant) * this.state.lastScale;
       //check scale min to max hello
       if (scale < this.props.maxScale && scale > this.props.minScale) {
@@ -98,21 +107,63 @@ export default class PinchZoomView extends Component {
     }
     // translate
     else if (gestureState.numberActiveTouches === 1) {
-      if (this.state.lastMovePinch) {
-        gestureState.dx = 0;
-        gestureState.dy = 0;
+
+      if(Math.floor(this.state.scale) <= this.props.minScale) {
+        //pervent panning when screen is zoomed outthis.setState({ offsetX:0, offsetY:0, lastMovePinch: false });
+        this.setState({ offsetX:0, offsetY:0, lastMovePinch: false });
+        return;
+
+      
+      } else {
+        this.pinchZoom.measure((fx, fy, width, height, px, py)=>{
+        
+          //going left
+          if(gestureState.dx < 0){
+            
+            if(px  < -(width-10) ) {
+              return;
+
+            }
+            
+          } else if( gestureState.dx > 0 ) {
+          
+            if(px > 30) {
+              return;
+
+            }
+           
+         
+          }
+
+          if (this.state.lastMovePinch) {
+            gestureState.dx = 0;
+            gestureState.dy = 0;
+          }
+          let offsetX = this.state.lastX + gestureState.dx / this.state.scale;
+          let offsetY = 0;
+          
+          this.setState({ offsetX, offsetY, lastMovePinch: false });
+         
+        }); 
+
+    
+
+   
+
       }
-      let offsetX = this.state.lastX + gestureState.dx / this.state.scale;
-      let offsetY = this.state.lastY + gestureState.dy / this.state.scale;
-      // if ( offsetX < 0  || offsetY <  0 )
-      this.setState({ offsetX, offsetY, lastMovePinch: false });
+    
+     
     }
   };
 
   render() {
     return (
-      <View
+      <View onLayout ={(event)=>{
+        this.setState({maxX:event.nativeEvent.layout.width})
+        this.setState({maxY:event.nativeEvent.layout.height})
+        console.log ("onlayout",event.nativeEvent)}}
         {...this.gestureHandlers.panHandlers}
+        ref ={view =>{this.pinchZoom = view ;}}
         style={[
           styles.container,
           this.props.style,
